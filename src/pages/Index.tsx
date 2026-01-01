@@ -1,15 +1,15 @@
 import { useState } from "react";
-import DecisionInput from "@/components/DecisionInput";
+import QuestionnaireFlow from "@/components/QuestionnaireFlow";
 import ReflectionCard from "@/components/ReflectionCard";
 
 const Index = () => {
-  const [decision, setDecision] = useState("");
+  const [responses, setResponses] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [showReflection, setShowReflection] = useState(false);
 
-  const handleSubmit = async (input: string) => {
+  const handleComplete = async (questionResponses: Record<string, string>) => {
     setIsProcessing(true);
-    setDecision(input);
+    setResponses(questionResponses);
     
     // Simulate processing time for the "reflection"
     await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -20,8 +20,13 @@ const Index = () => {
 
   const handleReset = () => {
     setShowReflection(false);
-    setDecision("");
+    setResponses({});
   };
+
+  // Combine all responses into a summary for the reflection card
+  const decisionSummary = Object.entries(responses)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join("\n\n");
 
   return (
     <main className="min-h-screen bg-background relative overflow-hidden">
@@ -45,9 +50,9 @@ const Index = () => {
         {/* Main content */}
         <div className="animate-slide-up" style={{ animationDelay: "0.2s" }}>
           {!showReflection ? (
-            <DecisionInput onSubmit={handleSubmit} isProcessing={isProcessing} />
+            <QuestionnaireFlow onComplete={handleComplete} isProcessing={isProcessing} />
           ) : (
-            <ReflectionCard decision={decision} onReset={handleReset} />
+            <ReflectionCard decision={decisionSummary} onReset={handleReset} />
           )}
         </div>
 
