@@ -1,32 +1,72 @@
 import { useState } from "react";
 import QuestionnaireFlow from "@/components/QuestionnaireFlow";
-import ReflectionCard from "@/components/ReflectionCard";
+import DecisionDNACard from "@/components/DecisionDNACard";
+import { toast } from "sonner";
+
+interface DecisionDNA {
+  risk_tolerance: "low" | "medium" | "high";
+  emotion_logic_ratio: {
+    emotion: number;
+    logic: number;
+  };
+  authority_response: "compliant" | "resistant" | "balanced";
+  time_bias: "short_term" | "balanced" | "long_term";
+  regret_sensitivity: "low" | "medium" | "high";
+  summary: string;
+}
 
 const Index = () => {
-  const [responses, setResponses] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showReflection, setShowReflection] = useState(false);
+  const [decisionDNA, setDecisionDNA] = useState<DecisionDNA | null>(null);
 
   const handleComplete = async (questionResponses: Record<string, string>) => {
     setIsProcessing(true);
-    setResponses(questionResponses);
     
-    // Simulate processing time for the "reflection"
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    setIsProcessing(false);
-    setShowReflection(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-decision-dna`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            Q1: questionResponses.Q1,
+            Q2: questionResponses.Q2,
+            Q3: questionResponses.Q3,
+            Q4: questionResponses.Q4,
+            Q5: questionResponses.Q5,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (response.status === 429) {
+          toast.error("Rate limit exceeded. Please try again later.");
+        } else if (response.status === 402) {
+          toast.error("Service temporarily unavailable. Please try again.");
+        } else {
+          toast.error(errorData.error || "Failed to analyze responses");
+        }
+        setIsProcessing(false);
+        return;
+      }
+
+      const data = await response.json();
+      setDecisionDNA(data.decisionDNA);
+    } catch (error) {
+      console.error('Error analyzing decision DNA:', error);
+      toast.error("Failed to analyze your responses. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleReset = () => {
-    setShowReflection(false);
-    setResponses({});
+    setDecisionDNA(null);
   };
-
-  // Combine all responses into a summary for the reflection card
-  const decisionSummary = Object.entries(responses)
-    .map(([key, value]) => `${key}: ${value}`)
-    .join("\n\n");
 
   return (
     <main className="min-h-screen bg-background relative overflow-hidden">
@@ -49,10 +89,10 @@ const Index = () => {
 
         {/* Main content */}
         <div className="animate-slide-up" style={{ animationDelay: "0.2s" }}>
-          {!showReflection ? (
+          {!decisionDNA ? (
             <QuestionnaireFlow onComplete={handleComplete} isProcessing={isProcessing} />
           ) : (
-            <ReflectionCard decision={decisionSummary} onReset={handleReset} />
+            <DecisionDNACard decisionDNA={decisionDNA} onReset={handleReset} />
           )}
         </div>
 

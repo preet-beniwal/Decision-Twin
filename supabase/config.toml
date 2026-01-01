@@ -1,0 +1,4 @@
+project_id = "sndacibkveksgwvukeji"
+
+[functions.analyze-decision-dna]
+verify_jwt = false
