@@ -12,49 +12,100 @@ const questions = [
   {
     id: "Q1",
     text: "You are already late, but you notice someone nearby clearly needs help. What do you do and why?",
+    options: [
+      { label: "Stop and help fully", description: "Empathy overrides schedule" },
+      { label: "Quick help, then go", description: "Balance both needs" },
+      { label: "Keep going, feel guilty", description: "Obligation wins" },
+      { label: "Depends on how late", description: "Weigh consequences first" },
+    ],
   },
   {
     id: "Q2",
     text: "You must choose between a stable but average-paying option and a risky option with much higher reward. Which do you choose and why?",
+    options: [
+      { label: "Take the stable path", description: "Security over uncertainty" },
+      { label: "Take the risk", description: "Potential outweighs fear" },
+      { label: "Need more information", description: "Delay until certain" },
+      { label: "Hybrid approach", description: "Minimize downside, keep upside" },
+    ],
   },
   {
     id: "Q3",
     text: "If someone criticizes you publicly, what affects you more: the logic of what they say or the way they say it?",
+    options: [
+      { label: "The logic matters most", description: "Facts over feelings" },
+      { label: "The tone hurts more", description: "Emotional impact first" },
+      { label: "Both equally", description: "Content and delivery intertwined" },
+      { label: "Who said it matters", description: "Source determines weight" },
+    ],
   },
   {
     id: "Q4",
-    text: "When facing an important decision, do you usually decide quickly or take time to think it through? Explain briefly.",
+    text: "When facing an important decision, do you usually decide quickly or take time to think it through?",
+    options: [
+      { label: "Decide quickly", description: "Trust gut instinct" },
+      { label: "Take my time", description: "Analyze all angles" },
+      { label: "Depends on stakes", description: "Scale effort to importance" },
+      { label: "Ask others first", description: "Seek external input" },
+    ],
   },
   {
     id: "Q5",
     text: "After making a decision, how often do you find yourself regretting or rethinking it?",
+    options: [
+      { label: "Rarely look back", description: "Commit and move on" },
+      { label: "Often second-guess", description: "Revisit choices frequently" },
+      { label: "Only if it fails", description: "Outcome determines reflection" },
+      { label: "Always briefly", description: "Quick review, then accept" },
+    ],
   },
 ];
 
 const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [responses, setResponses] = useState<Record<string, string>>({
-    Q1: "",
-    Q2: "",
-    Q3: "",
-    Q4: "",
-    Q5: "",
+  const [responses, setResponses] = useState<Record<string, { option: string; elaboration: string }>>({
+    Q1: { option: "", elaboration: "" },
+    Q2: { option: "", elaboration: "" },
+    Q3: { option: "", elaboration: "" },
+    Q4: { option: "", elaboration: "" },
+    Q5: { option: "", elaboration: "" },
   });
 
   const currentQuestion = questions[currentStep];
   const isLastQuestion = currentStep === questions.length - 1;
   const isFirstQuestion = currentStep === 0;
+  const currentResponse = responses[currentQuestion.id];
 
-  const handleResponseChange = (value: string) => {
+  const handleOptionSelect = (optionLabel: string) => {
     setResponses((prev) => ({
       ...prev,
-      [currentQuestion.id]: value,
+      [currentQuestion.id]: {
+        ...prev[currentQuestion.id],
+        option: optionLabel,
+      },
+    }));
+  };
+
+  const handleElaborationChange = (value: string) => {
+    setResponses((prev) => ({
+      ...prev,
+      [currentQuestion.id]: {
+        ...prev[currentQuestion.id],
+        elaboration: value,
+      },
     }));
   };
 
   const handleNext = () => {
     if (isLastQuestion) {
-      onComplete(responses);
+      // Convert to simple string format for reflection
+      const formattedResponses: Record<string, string> = {};
+      Object.entries(responses).forEach(([key, value]) => {
+        formattedResponses[key] = value.elaboration 
+          ? `${value.option} — ${value.elaboration}`
+          : value.option;
+      });
+      onComplete(formattedResponses);
     } else {
       setCurrentStep((prev) => prev + 1);
     }
@@ -67,7 +118,7 @@ const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps)
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && e.metaKey && responses[currentQuestion.id].trim()) {
+    if (e.key === "Enter" && e.metaKey && currentResponse.option) {
       handleNext();
     }
   };
@@ -102,20 +153,41 @@ const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps)
         </h2>
       </div>
 
-      {/* Input area */}
-      <div className="glass-panel rounded-2xl p-1 shadow-soft">
-        <Textarea
-          value={responses[currentQuestion.id]}
-          onChange={(e) => handleResponseChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Share your thoughts..."
-          className="min-h-[140px] border-0 bg-transparent resize-none text-lg placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0 p-5"
-          disabled={isProcessing}
-        />
+      {/* Options grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {currentQuestion.options.map((option) => (
+          <button
+            key={option.label}
+            onClick={() => handleOptionSelect(option.label)}
+            disabled={isProcessing}
+            className={`p-4 rounded-xl text-left transition-all duration-200 border ${
+              currentResponse.option === option.label
+                ? "bg-primary/10 border-primary text-foreground"
+                : "bg-secondary/50 border-border/50 hover:bg-secondary hover:border-border text-foreground/80"
+            }`}
+          >
+            <p className="font-body font-medium text-sm">{option.label}</p>
+            <p className="text-xs text-muted-foreground mt-1">{option.description}</p>
+          </button>
+        ))}
       </div>
 
+      {/* Elaboration input */}
+      {currentResponse.option && (
+        <div className="glass-panel rounded-2xl p-1 shadow-soft animate-fade-in">
+          <Textarea
+            value={currentResponse.elaboration}
+            onChange={(e) => handleElaborationChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Add your own thoughts (optional)..."
+            className="min-h-[80px] border-0 bg-transparent resize-none text-base placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0 p-4"
+            disabled={isProcessing}
+          />
+        </div>
+      )}
+
       {/* Navigation buttons */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center pt-2">
         <Button
           onClick={handleBack}
           disabled={isFirstQuestion || isProcessing}
@@ -128,7 +200,7 @@ const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps)
 
         <Button
           onClick={handleNext}
-          disabled={!responses[currentQuestion.id].trim() || isProcessing}
+          disabled={!currentResponse.option || isProcessing}
           className="group px-6 py-3 h-auto text-base font-body font-medium rounded-xl transition-all duration-300 hover:shadow-glow"
         >
           {isProcessing ? (
