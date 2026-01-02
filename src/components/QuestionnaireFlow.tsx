@@ -62,8 +62,9 @@ const questions = [
 ];
 
 const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps) => {
-  const [currentStep, setCurrentStep] = useState(-1); // -1 = scenario step
+  const [currentStep, setCurrentStep] = useState(-2); // -2 = scenario, -1 = prediction
   const [scenario, setScenario] = useState("");
+  const [userPrediction, setUserPrediction] = useState("");
   const [responses, setResponses] = useState<Record<string, { option: string; elaboration: string }>>({
     Q1: { option: "", elaboration: "" },
     Q2: { option: "", elaboration: "" },
@@ -72,11 +73,13 @@ const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps)
     Q5: { option: "", elaboration: "" },
   });
 
-  const isScenarioStep = currentStep === -1;
+  const isScenarioStep = currentStep === -2;
+  const isPredictionStep = currentStep === -1;
+  const isQuestionStep = currentStep >= 0;
 
-  const currentQuestion = !isScenarioStep ? questions[currentStep] : null;
+  const currentQuestion = isQuestionStep ? questions[currentStep] : null;
   const isLastQuestion = currentStep === questions.length - 1;
-  const isFirstQuestion = currentStep === -1;
+  const isFirstStep = currentStep === -2;
   const currentResponse = currentQuestion ? responses[currentQuestion.id] : null;
 
   const handleOptionSelect = (optionLabel: string) => {
@@ -102,7 +105,10 @@ const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps)
   const handleNext = () => {
     if (isLastQuestion) {
       // Convert to simple string format for reflection
-      const formattedResponses: Record<string, string> = { Scenario: scenario };
+      const formattedResponses: Record<string, string> = { 
+        Scenario: scenario,
+        UserPrediction: userPrediction,
+      };
       Object.entries(responses).forEach(([key, value]) => {
         formattedResponses[key] = value.elaboration 
           ? `${value.option} — ${value.elaboration}`
@@ -115,7 +121,7 @@ const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps)
   };
 
   const handleBack = () => {
-    if (!isFirstQuestion) {
+    if (!isFirstStep) {
       setCurrentStep((prev) => prev - 1);
     }
   };
@@ -124,17 +130,28 @@ const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps)
     if (e.key === "Enter" && e.metaKey) {
       if (isScenarioStep && scenario.trim()) {
         handleNext();
+      } else if (isPredictionStep && userPrediction.trim()) {
+        handleNext();
       } else if (currentResponse?.option) {
         handleNext();
       }
     }
   };
 
-  const canProceed = isScenarioStep ? scenario.trim().length > 0 : currentResponse?.option;
+  const canProceed = isScenarioStep 
+    ? scenario.trim().length > 0 
+    : isPredictionStep 
+    ? userPrediction.trim().length > 0 
+    : currentResponse?.option;
 
-  // Total steps = 1 scenario + 5 questions
-  const totalSteps = questions.length + 1;
-  const displayStep = currentStep + 2; // +1 for 0-index, +1 for scenario step
+  // Total steps = 1 scenario + 1 prediction + 5 questions
+  const totalSteps = questions.length + 2;
+
+  const getStepLabel = () => {
+    if (isScenarioStep) return "Your Scenario";
+    if (isPredictionStep) return "Your Prediction";
+    return `Question ${currentStep + 1} of ${questions.length}`;
+  };
 
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6">
@@ -144,9 +161,9 @@ const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps)
           <div
             key={index}
             className={`h-1.5 w-8 rounded-full transition-all duration-300 ${
-              index === currentStep + 1
+              index === currentStep + 2
                 ? "bg-primary"
-                : index < currentStep + 1
+                : index < currentStep + 2
                 ? "bg-primary/40"
                 : "bg-muted"
             }`}
@@ -156,7 +173,7 @@ const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps)
 
       {/* Step number */}
       <p className="text-center text-sm text-muted-foreground font-body">
-        {isScenarioStep ? "Your Scenario" : `Question ${currentStep + 1} of ${questions.length}`}
+        {getStepLabel()}
       </p>
 
       {isScenarioStep ? (
@@ -174,6 +191,26 @@ const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps)
               onChange={(e) => setScenario(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="e.g., I'm deciding whether to accept a job offer in another city..."
+              className="min-h-[120px] border-0 bg-transparent resize-none text-base placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0 p-4"
+              disabled={isProcessing}
+            />
+          </div>
+        </>
+      ) : isPredictionStep ? (
+        <>
+          {/* Prediction step */}
+          <div className="text-center px-4">
+            <h2 className="font-display text-2xl md:text-3xl text-foreground leading-relaxed">
+              Before seeing the simulation, what do you THINK you would do?
+            </h2>
+          </div>
+
+          <div className="glass-panel rounded-2xl p-1 shadow-soft">
+            <Textarea
+              value={userPrediction}
+              onChange={(e) => setUserPrediction(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Describe what you think your decision would be..."
               className="min-h-[120px] border-0 bg-transparent resize-none text-base placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0 p-4"
               disabled={isProcessing}
             />
@@ -227,7 +264,7 @@ const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps)
       <div className="flex justify-between items-center pt-2">
         <Button
           onClick={handleBack}
-          disabled={isFirstQuestion || isProcessing}
+          disabled={isFirstStep || isProcessing}
           variant="ghost"
           className="text-muted-foreground hover:text-foreground font-body"
         >
