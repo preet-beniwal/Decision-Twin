@@ -6,6 +6,7 @@ import { ArrowRight, ArrowLeft } from "lucide-react";
 interface QuestionnaireFlowProps {
   onComplete: (responses: Record<string, string>) => void;
   isProcessing: boolean;
+  processingMessage?: string;
 }
 
 const questions = [
@@ -61,7 +62,7 @@ const questions = [
   },
 ];
 
-const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps) => {
+const QuestionnaireFlow = ({ onComplete, isProcessing, processingMessage }: QuestionnaireFlowProps) => {
   const [currentStep, setCurrentStep] = useState(-2); // -2 = scenario, -1 = prediction
   const [scenario, setScenario] = useState("");
   const [userPrediction, setUserPrediction] = useState("");
@@ -280,7 +281,7 @@ const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps)
           {isProcessing ? (
             <span className="flex items-center gap-2">
               <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-              Reflecting...
+              {processingMessage || "Reflecting..."}
             </span>
           ) : (
             <span className="flex items-center gap-2">

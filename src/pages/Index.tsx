@@ -1,6 +1,7 @@
 import { useState } from "react";
 import QuestionnaireFlow from "@/components/QuestionnaireFlow";
 import DecisionDNACard from "@/components/DecisionDNACard";
+import DecisionResultCard from "@/components/DecisionResultCard";
 import { toast } from "sonner";
 
 interface DecisionDNA {
@@ -15,15 +16,34 @@ interface DecisionDNA {
   summary: string;
 }
 
+interface DecisionResult {
+  likely_choice: string;
+  decision_confidence: number;
+  reasoning_steps: string[];
+  hidden_biases: string[];
+  ignored_alternative: string;
+  ignored_alternative_reason: string;
+  possible_regret: string;
+}
+
 const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState<"dna" | "simulation" | null>(null);
   const [decisionDNA, setDecisionDNA] = useState<DecisionDNA | null>(null);
+  const [decisionResult, setDecisionResult] = useState<DecisionResult | null>(null);
+  const [userInputs, setUserInputs] = useState<{ scenario: string; userPrediction: string } | null>(null);
 
   const handleComplete = async (questionResponses: Record<string, string>) => {
     setIsProcessing(true);
+    setProcessingStep("dna");
     
+    const scenario = questionResponses.Scenario;
+    const userPrediction = questionResponses.UserPrediction;
+    setUserInputs({ scenario, userPrediction });
+
     try {
-      const response = await fetch(
+      // Step 1: Analyze Decision DNA
+      const dnaResponse = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-decision-dna`,
         {
           method: 'POST',
@@ -41,31 +61,78 @@ const Index = () => {
         }
       );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        if (response.status === 429) {
+      if (!dnaResponse.ok) {
+        const errorData = await dnaResponse.json();
+        if (dnaResponse.status === 429) {
           toast.error("Rate limit exceeded. Please try again later.");
-        } else if (response.status === 402) {
+        } else if (dnaResponse.status === 402) {
           toast.error("Service temporarily unavailable. Please try again.");
         } else {
           toast.error(errorData.error || "Failed to analyze responses");
         }
         setIsProcessing(false);
+        setProcessingStep(null);
         return;
       }
 
-      const data = await response.json();
-      setDecisionDNA(data.decisionDNA);
+      const dnaData = await dnaResponse.json();
+      setDecisionDNA(dnaData.decisionDNA);
+
+      // Step 2: Simulate Decision
+      setProcessingStep("simulation");
+      
+      const simResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/simulate-decision`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            decisionDNA: dnaData.decisionDNA,
+            scenario,
+            userPrediction,
+          }),
+        }
+      );
+
+      if (!simResponse.ok) {
+        const errorData = await simResponse.json();
+        if (simResponse.status === 429) {
+          toast.error("Rate limit exceeded. Please try again later.");
+        } else if (simResponse.status === 402) {
+          toast.error("Service temporarily unavailable. Please try again.");
+        } else {
+          toast.error(errorData.error || "Failed to simulate decision");
+        }
+        setIsProcessing(false);
+        setProcessingStep(null);
+        return;
+      }
+
+      const simData = await simResponse.json();
+      setDecisionResult(simData.decisionResult);
+
     } catch (error) {
-      console.error('Error analyzing decision DNA:', error);
-      toast.error("Failed to analyze your responses. Please try again.");
+      console.error('Error:', error);
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setIsProcessing(false);
+      setProcessingStep(null);
     }
   };
 
   const handleReset = () => {
     setDecisionDNA(null);
+    setDecisionResult(null);
+    setUserInputs(null);
+  };
+
+  const getProcessingMessage = () => {
+    if (processingStep === "dna") return "Analyzing your Decision DNA...";
+    if (processingStep === "simulation") return "Simulating your decision...";
+    return "Reflecting...";
   };
 
   return (
@@ -89,11 +156,21 @@ const Index = () => {
 
         {/* Main content */}
         <div className="animate-slide-up" style={{ animationDelay: "0.2s" }}>
-          {!decisionDNA ? (
-            <QuestionnaireFlow onComplete={handleComplete} isProcessing={isProcessing} />
-          ) : (
+          {!decisionDNA && !decisionResult ? (
+            <QuestionnaireFlow 
+              onComplete={handleComplete} 
+              isProcessing={isProcessing}
+              processingMessage={getProcessingMessage()}
+            />
+          ) : decisionResult && userInputs ? (
+            <DecisionResultCard 
+              decisionResult={decisionResult} 
+              userPrediction={userInputs.userPrediction}
+              onReset={handleReset} 
+            />
+          ) : decisionDNA ? (
             <DecisionDNACard decisionDNA={decisionDNA} onReset={handleReset} />
-          )}
+          ) : null}
         </div>
 
         {/* Footer */}
