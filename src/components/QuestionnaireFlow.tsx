@@ -62,7 +62,8 @@ const questions = [
 ];
 
 const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps) => {
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(-1); // -1 = scenario step
+  const [scenario, setScenario] = useState("");
   const [responses, setResponses] = useState<Record<string, { option: string; elaboration: string }>>({
     Q1: { option: "", elaboration: "" },
     Q2: { option: "", elaboration: "" },
@@ -71,10 +72,12 @@ const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps)
     Q5: { option: "", elaboration: "" },
   });
 
-  const currentQuestion = questions[currentStep];
+  const isScenarioStep = currentStep === -1;
+
+  const currentQuestion = !isScenarioStep ? questions[currentStep] : null;
   const isLastQuestion = currentStep === questions.length - 1;
-  const isFirstQuestion = currentStep === 0;
-  const currentResponse = responses[currentQuestion.id];
+  const isFirstQuestion = currentStep === -1;
+  const currentResponse = currentQuestion ? responses[currentQuestion.id] : null;
 
   const handleOptionSelect = (optionLabel: string) => {
     setResponses((prev) => ({
@@ -99,7 +102,7 @@ const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps)
   const handleNext = () => {
     if (isLastQuestion) {
       // Convert to simple string format for reflection
-      const formattedResponses: Record<string, string> = {};
+      const formattedResponses: Record<string, string> = { Scenario: scenario };
       Object.entries(responses).forEach(([key, value]) => {
         formattedResponses[key] = value.elaboration 
           ? `${value.option} — ${value.elaboration}`
@@ -118,22 +121,32 @@ const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps)
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && e.metaKey && currentResponse.option) {
-      handleNext();
+    if (e.key === "Enter" && e.metaKey) {
+      if (isScenarioStep && scenario.trim()) {
+        handleNext();
+      } else if (currentResponse?.option) {
+        handleNext();
+      }
     }
   };
+
+  const canProceed = isScenarioStep ? scenario.trim().length > 0 : currentResponse?.option;
+
+  // Total steps = 1 scenario + 5 questions
+  const totalSteps = questions.length + 1;
+  const displayStep = currentStep + 2; // +1 for 0-index, +1 for scenario step
 
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6">
       {/* Progress indicator */}
       <div className="flex justify-center gap-2">
-        {questions.map((_, index) => (
+        {Array.from({ length: totalSteps }).map((_, index) => (
           <div
             key={index}
             className={`h-1.5 w-8 rounded-full transition-all duration-300 ${
-              index === currentStep
+              index === currentStep + 1
                 ? "bg-primary"
-                : index < currentStep
+                : index < currentStep + 1
                 ? "bg-primary/40"
                 : "bg-muted"
             }`}
@@ -141,49 +154,73 @@ const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps)
         ))}
       </div>
 
-      {/* Question number */}
+      {/* Step number */}
       <p className="text-center text-sm text-muted-foreground font-body">
-        Question {currentStep + 1} of {questions.length}
+        {isScenarioStep ? "Your Scenario" : `Question ${currentStep + 1} of ${questions.length}`}
       </p>
 
-      {/* Question text */}
-      <div className="text-center px-4">
-        <h2 className="font-display text-2xl md:text-3xl text-foreground leading-relaxed">
-          {currentQuestion.text}
-        </h2>
-      </div>
+      {isScenarioStep ? (
+        <>
+          {/* Scenario step */}
+          <div className="text-center px-4">
+            <h2 className="font-display text-2xl md:text-3xl text-foreground leading-relaxed">
+              Describe a real-life decision or situation you are currently facing.
+            </h2>
+          </div>
 
-      {/* Options grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {currentQuestion.options.map((option) => (
-          <button
-            key={option.label}
-            onClick={() => handleOptionSelect(option.label)}
-            disabled={isProcessing}
-            className={`p-4 rounded-xl text-left transition-all duration-200 border ${
-              currentResponse.option === option.label
-                ? "bg-primary/10 border-primary text-foreground"
-                : "bg-secondary/50 border-border/50 hover:bg-secondary hover:border-border text-foreground/80"
-            }`}
-          >
-            <p className="font-body font-medium text-sm">{option.label}</p>
-            <p className="text-xs text-muted-foreground mt-1">{option.description}</p>
-          </button>
-        ))}
-      </div>
+          <div className="glass-panel rounded-2xl p-1 shadow-soft">
+            <Textarea
+              value={scenario}
+              onChange={(e) => setScenario(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="e.g., I'm deciding whether to accept a job offer in another city..."
+              className="min-h-[120px] border-0 bg-transparent resize-none text-base placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0 p-4"
+              disabled={isProcessing}
+            />
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Question text */}
+          <div className="text-center px-4">
+            <h2 className="font-display text-2xl md:text-3xl text-foreground leading-relaxed">
+              {currentQuestion?.text}
+            </h2>
+          </div>
 
-      {/* Elaboration input */}
-      {currentResponse.option && (
-        <div className="glass-panel rounded-2xl p-1 shadow-soft animate-fade-in">
-          <Textarea
-            value={currentResponse.elaboration}
-            onChange={(e) => handleElaborationChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Add your own thoughts (optional)..."
-            className="min-h-[80px] border-0 bg-transparent resize-none text-base placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0 p-4"
-            disabled={isProcessing}
-          />
-        </div>
+          {/* Options grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {currentQuestion?.options.map((option) => (
+              <button
+                key={option.label}
+                onClick={() => handleOptionSelect(option.label)}
+                disabled={isProcessing}
+                className={`p-4 rounded-xl text-left transition-all duration-200 border ${
+                  currentResponse?.option === option.label
+                    ? "bg-primary/10 border-primary text-foreground"
+                    : "bg-secondary/50 border-border/50 hover:bg-secondary hover:border-border text-foreground/80"
+                }`}
+              >
+                <p className="font-body font-medium text-sm">{option.label}</p>
+                <p className="text-xs text-muted-foreground mt-1">{option.description}</p>
+              </button>
+            ))}
+          </div>
+
+          {/* Elaboration input */}
+          {currentResponse?.option && (
+            <div className="glass-panel rounded-2xl p-1 shadow-soft animate-fade-in">
+              <Textarea
+                value={currentResponse.elaboration}
+                onChange={(e) => handleElaborationChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Add your own thoughts (optional)..."
+                className="min-h-[80px] border-0 bg-transparent resize-none text-base placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0 p-4"
+                disabled={isProcessing}
+              />
+            </div>
+          )}
+        </>
       )}
 
       {/* Navigation buttons */}
@@ -200,7 +237,7 @@ const QuestionnaireFlow = ({ onComplete, isProcessing }: QuestionnaireFlowProps)
 
         <Button
           onClick={handleNext}
-          disabled={!currentResponse.option || isProcessing}
+          disabled={!canProceed || isProcessing}
           className="group px-6 py-3 h-auto text-base font-body font-medium rounded-xl transition-all duration-300 hover:shadow-glow"
         >
           {isProcessing ? (
