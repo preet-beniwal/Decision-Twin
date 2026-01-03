@@ -77,8 +77,14 @@ const Index = () => {
 
       const dnaData = await dnaResponse.json();
       setDecisionDNA(dnaData.decisionDNA);
+      setIsProcessing(false);
+      setProcessingStep(null);
+
+      // Wait 5 seconds so user can review their Decision DNA
+      await new Promise(resolve => setTimeout(resolve, 5000));
 
       // Step 2: Simulate Decision
+      setIsProcessing(true);
       setProcessingStep("simulation");
       
       const simResponse = await fetch(
