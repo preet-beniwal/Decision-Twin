@@ -21,52 +21,45 @@ interface DecisionResultCardProps {
 const DecisionResultCard = ({ decisionResult, userPrediction, onReset }: DecisionResultCardProps) => {
   return (
     <div className="w-full max-w-3xl mx-auto space-y-8 animate-fade-in">
-      {/* Header */}
-      <div className="text-center">
-        <h2 className="font-display text-3xl md:text-4xl text-foreground mb-2">
-          Decision Simulation
-        </h2>
-        <p className="text-muted-foreground font-body">
-          Based on your Decision DNA, here's how you're likely to decide
-        </p>
-      </div>
+      {/* You Expected */}
+      <Card className="p-6 bg-secondary/30 border-border/50">
+        <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-3 font-body">
+          You Expected
+        </h3>
+        <p className="text-foreground font-body text-lg">{userPrediction}</p>
+      </Card>
 
-      {/* Your Prediction vs Simulation */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card className="p-5 bg-secondary/30 border-border/50">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2 font-body">
-            What you predicted
-          </p>
-          <p className="text-foreground font-body">{userPrediction}</p>
-        </Card>
-        
-        <Card className="p-5 bg-primary/10 border-primary/30">
-          <p className="text-xs uppercase tracking-wider text-primary mb-2 font-body">
-            Likely decision
-          </p>
-          <p className="text-foreground font-body font-medium">{decisionResult.likely_choice}</p>
-        </Card>
-      </div>
+      {/* Decision Twin Predicts */}
+      <Card className="p-6 bg-primary/10 border-primary/30">
+        <h3 className="text-xs uppercase tracking-wider text-primary mb-3 font-body">
+          Decision Twin Predicts
+        </h3>
+        <p className="text-foreground font-body text-lg font-medium">{decisionResult.likely_choice}</p>
+      </Card>
 
-      {/* Confidence */}
+      {/* Confidence Level */}
       <Card className="p-6 bg-card/50 border-border/50">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm text-muted-foreground font-body">Decision Confidence</span>
-          <span className="text-2xl font-display text-foreground">{decisionResult.decision_confidence}%</span>
-        </div>
-        <div className="h-2 bg-muted rounded-full overflow-hidden">
-          <div 
-            className="h-full bg-primary rounded-full transition-all duration-1000"
-            style={{ width: `${decisionResult.decision_confidence}%` }}
-          />
+        <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-3 font-body">
+          Confidence Level
+        </h3>
+        <div className="flex items-center gap-4">
+          <span className="text-3xl font-display text-foreground">{decisionResult.decision_confidence}%</span>
+          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-primary rounded-full transition-all duration-1000"
+              style={{ width: `${decisionResult.decision_confidence}%` }}
+            />
+          </div>
         </div>
       </Card>
 
-      {/* Reasoning Steps */}
+      {/* Reasoning Behind This Decision */}
       <Card className="p-6 bg-card/50 border-border/50">
         <div className="flex items-center gap-2 mb-4">
           <Brain className="w-5 h-5 text-primary" />
-          <h3 className="font-display text-lg text-foreground">Reasoning Steps</h3>
+          <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-body">
+            Reasoning Behind This Decision
+          </h3>
         </div>
         <ol className="space-y-3">
           {decisionResult.reasoning_steps.map((step, index) => (
@@ -80,11 +73,13 @@ const DecisionResultCard = ({ decisionResult, userPrediction, onReset }: Decisio
         </ol>
       </Card>
 
-      {/* Hidden Biases */}
+      {/* Biases Detected */}
       <Card className="p-6 bg-card/50 border-border/50">
         <div className="flex items-center gap-2 mb-4">
           <AlertTriangle className="w-5 h-5 text-amber-500" />
-          <h3 className="font-display text-lg text-foreground">Hidden Biases</h3>
+          <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-body">
+            Biases Detected
+          </h3>
         </div>
         <ul className="space-y-2">
           {decisionResult.hidden_biases.map((bias, index) => (
@@ -96,29 +91,35 @@ const DecisionResultCard = ({ decisionResult, userPrediction, onReset }: Decisio
         </ul>
       </Card>
 
-      {/* Ignored Alternative */}
+      {/* Decision Path You Are Likely to Ignore */}
       <Card className="p-6 bg-card/50 border-border/50">
         <div className="flex items-center gap-2 mb-4">
           <XCircle className="w-5 h-5 text-muted-foreground" />
-          <h3 className="font-display text-lg text-foreground">Ignored Alternative</h3>
+          <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-body">
+            Decision Path You Are Likely to Ignore
+          </h3>
         </div>
-        <div className="space-y-3">
-          <p className="text-foreground font-body font-medium">{decisionResult.ignored_alternative}</p>
-          <p className="text-muted-foreground font-body text-sm">{decisionResult.ignored_alternative_reason}</p>
-        </div>
+        <p className="text-foreground font-body">{decisionResult.ignored_alternative}</p>
       </Card>
 
-      {/* Possible Regret */}
+      {/* Possible Future Regret */}
       <Card className="p-6 bg-card/50 border-border/50">
         <div className="flex items-center gap-2 mb-4">
           <Clock className="w-5 h-5 text-rose-400" />
-          <h3 className="font-display text-lg text-foreground">Possible Regret</h3>
+          <h3 className="text-xs uppercase tracking-wider text-muted-foreground font-body">
+            Possible Future Regret
+          </h3>
         </div>
         <p className="text-foreground/80 font-body italic">{decisionResult.possible_regret}</p>
       </Card>
 
+      {/* Footer Disclaimer */}
+      <p className="text-center text-xs text-muted-foreground font-body px-4">
+        This is a behavioral simulation, not psychological, medical, or legal advice.
+      </p>
+
       {/* Reset Button */}
-      <div className="flex justify-center pt-4">
+      <div className="flex justify-center pt-2">
         <Button
           onClick={onReset}
           variant="outline"
