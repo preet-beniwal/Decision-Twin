@@ -13,6 +13,31 @@ This is a prediction, not advice.
 
 Remain neutral, transparent, and analytical.`;
 
+// Get all available API keys
+function getApiKeys(): string[] {
+  const keys: string[] = [];
+  const key1 = Deno.env.get('GEMINI_API_KEY_1');
+  const key2 = Deno.env.get('GEMINI_API_KEY_2');
+  const key3 = Deno.env.get('GEMINI_API_KEY_3');
+  
+  if (key1) keys.push(key1);
+  if (key2) keys.push(key2);
+  if (key3) keys.push(key3);
+  
+  // Fallback to original key if no numbered keys exist
+  if (keys.length === 0) {
+    const fallbackKey = Deno.env.get('GEMINI_API_KEY');
+    if (fallbackKey) keys.push(fallbackKey);
+  }
+  
+  return keys;
+}
+
+// Random key selection for load distribution
+function getRandomKey(keys: string[]): string {
+  return keys[Math.floor(Math.random() * keys.length)];
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -23,10 +48,12 @@ serve(async (req) => {
     
     console.log('Received inputs:', { decisionDNA, scenario, userPrediction });
 
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-    if (!GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY is not configured');
+    const apiKeys = getApiKeys();
+    if (apiKeys.length === 0) {
+      throw new Error('No Gemini API keys configured');
     }
+    
+    console.log(`Using ${apiKeys.length} API keys for rotation`);
 
     const userPrompt = `Decision DNA:
 
@@ -62,37 +89,60 @@ Do not recommend actions.
 
 Do not add extra text.`;
 
-    console.log('Sending request to Gemini API for decision simulation...');
+    console.log('Sending request to Gemini API for decision simulation with key rotation...');
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]
+    // Try each key until one works
+    let response: Response | null = null;
+    let lastError: string = '';
+    const triedKeys = new Set<string>();
+    
+    while (triedKeys.size < apiKeys.length) {
+      const currentKey = getRandomKey(apiKeys.filter(k => !triedKeys.has(k)));
+      triedKeys.add(currentKey);
+      
+      console.log(`Trying API key ${triedKeys.size} of ${apiKeys.length}`);
+      
+      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${currentKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 1024,
           }
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1024,
-        }
-      }),
-    });
+        }),
+      });
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      if (response.ok) {
+        console.log('Request successful');
+        break;
       }
+      
+      if (response.status === 429) {
+        console.log(`Key ${triedKeys.size} rate limited, trying next...`);
+        lastError = 'Rate limit exceeded';
+        continue;
+      }
+      
+      // For other errors, don't retry
       const errorText = await response.text();
       console.error('Gemini API error:', response.status, errorText);
       throw new Error(`Gemini API error: ${response.status}`);
+    }
+
+    if (!response || !response.ok) {
+      return new Response(JSON.stringify({ error: 'All API keys rate limited. Please try again later.' }), {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const data = await response.json();
