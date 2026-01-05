@@ -80,8 +80,8 @@ const Index = () => {
       setIsProcessing(false);
       setProcessingStep(null);
 
-      // Wait 5 seconds so user can review their Decision DNA
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      // Wait 2 seconds so user can review their Decision DNA
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Step 2: Simulate Decision
       setIsProcessing(true);
