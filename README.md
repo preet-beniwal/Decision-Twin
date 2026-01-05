@@ -136,9 +136,8 @@ The development server will start with auto-reloading and instant preview.
 ```
 🔗 Links
 
-· Live Application: [Your deployment URL]
-· Lovable Project: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
-· Repository: [Your GitHub Repository URL]
+· Live Application: [https://preview--decision-twin.lovable.app/]
+· Repository: [https://github.com/preet-beniwal/twin-decisions.git]
 
 ---
 
